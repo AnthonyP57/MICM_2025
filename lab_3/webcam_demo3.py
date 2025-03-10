@@ -15,11 +15,11 @@ tf.disable_eager_execution()
 
 model=101
 # cam_id=1
-cam_id = './man_vid.mp4'
+cam_id = '/home/anthonyp57/VSCode_projects/interakcja/lab_3/man_vid.mp4'
 cam_width=1280
 cam_height=720
 
-MODEL_DIR = './_models'
+MODEL_DIR = '/home/anthonyp57/VSCode_projects/interakcja/lab_3/_models'
 DEBUG_OUTPUT = False
 
 def load_model(model_id, sess, model_dir=MODEL_DIR):
@@ -181,12 +181,12 @@ def main():
             right_angle = shoulder_elbow_wrist_angle(right_shoulder, right_elbow, right_wrist)
             
             if left_angle < 20 or right_angle < 20:
-                side = 'left' if left_angle > right_angle else 'right'
+                side = 'left' if left_angle < right_angle else 'right'
                 if side == 'left':
-                    wrist_abose_nose_y_pos = nose[0] - left_wrist[0]
+                    wrist_abose_nose_y_pos = left_wrist[1] - nose[1]
                     angle = left_angle
                 else:
-                    wrist_abose_nose_y_pos = nose[0] - right_wrist[0]
+                    wrist_abose_nose_y_pos = right_wrist[1] - nose[1]
                     angle = right_angle
             else:
                 wrist_abose_nose_y_pos = None
