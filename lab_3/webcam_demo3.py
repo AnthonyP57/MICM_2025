@@ -137,79 +137,80 @@ def main():
         start = time.time()
         frame_count = 0
         while True:
+            if frame_count % 10 == 0:
 
-            res, img = cap.read()
-            if not res:
-                raise IOError("webcam failure")
-                    
-            width=img.shape[1]
-            height=img.shape[0]
-            target_width = (int(width) // output_stride) * output_stride + 1
-            target_height = (int(height) // output_stride) * output_stride + 1
-            scale = np.array([img.shape[0] / target_height, img.shape[1] / target_width])
+                res, img = cap.read()
+                if not res:
+                    raise IOError("webcam failure")
+                        
+                width=img.shape[1]
+                height=img.shape[0]
+                target_width = (int(width) // output_stride) * output_stride + 1
+                target_height = (int(height) // output_stride) * output_stride + 1
+                scale = np.array([img.shape[0] / target_height, img.shape[1] / target_width])
 
-            input_img = cv2.resize(img, (target_width, target_height), interpolation=cv2.INTER_LINEAR)
-            input_img = cv2.cvtColor(input_img, cv2.COLOR_BGR2RGB).astype(np.float32)
-            input_img = input_img * (2.0 / 255.0) - 1.0
-            input_img = input_img.reshape(1, target_height, target_width, 3)
-            display_image=img.copy()
+                input_img = cv2.resize(img, (target_width, target_height), interpolation=cv2.INTER_LINEAR)
+                input_img = cv2.cvtColor(input_img, cv2.COLOR_BGR2RGB).astype(np.float32)
+                input_img = input_img * (2.0 / 255.0) - 1.0
+                input_img = input_img.reshape(1, target_height, target_width, 3)
+                display_image=img.copy()
 
-            heatmaps_result, offsets_result, displacement_fwd_result, displacement_bwd_result = sess.run(
-                model_outputs,
-                feed_dict={'image:0': input_img}
-            )
+                heatmaps_result, offsets_result, displacement_fwd_result, displacement_bwd_result = sess.run(
+                    model_outputs,
+                    feed_dict={'image:0': input_img}
+                )
 
-            pose_scores, keypoint_scores, keypoint_coords = posenet.decode_multi.decode_multiple_poses(
-                heatmaps_result.squeeze(axis=0),
-                offsets_result.squeeze(axis=0),
-                displacement_fwd_result.squeeze(axis=0),
-                displacement_bwd_result.squeeze(axis=0),
-                output_stride=output_stride,
-                max_pose_detections=10,
-                min_pose_score=0.15)
+                pose_scores, keypoint_scores, keypoint_coords = posenet.decode_multi.decode_multiple_poses(
+                    heatmaps_result.squeeze(axis=0),
+                    offsets_result.squeeze(axis=0),
+                    displacement_fwd_result.squeeze(axis=0),
+                    displacement_bwd_result.squeeze(axis=0),
+                    output_stride=output_stride,
+                    max_pose_detections=10,
+                    min_pose_score=0.15)
 
-            keypoint_coords *= scale
-            nose = keypoint_coords[0, PART_NAMES.index('nose')]
-            left_shoulder = keypoint_coords[0, PART_NAMES.index('leftShoulder')]
-            right_shoulder = keypoint_coords[0, PART_NAMES.index('rightShoulder')]
-            left_elbow = keypoint_coords[0, PART_NAMES.index('leftElbow')]
-            right_elbow = keypoint_coords[0, PART_NAMES.index('rightElbow')]
-            left_wrist = keypoint_coords[0, PART_NAMES.index('leftWrist')]
-            right_wrist = keypoint_coords[0, PART_NAMES.index('rightWrist')]
+                keypoint_coords *= scale
+                nose = keypoint_coords[0, PART_NAMES.index('nose')]
+                left_shoulder = keypoint_coords[0, PART_NAMES.index('leftShoulder')]
+                right_shoulder = keypoint_coords[0, PART_NAMES.index('rightShoulder')]
+                left_elbow = keypoint_coords[0, PART_NAMES.index('leftElbow')]
+                right_elbow = keypoint_coords[0, PART_NAMES.index('rightElbow')]
+                left_wrist = keypoint_coords[0, PART_NAMES.index('leftWrist')]
+                right_wrist = keypoint_coords[0, PART_NAMES.index('rightWrist')]
 
-            left_angle = shoulder_elbow_wrist_angle(left_shoulder, left_elbow, left_wrist)
-            right_angle = shoulder_elbow_wrist_angle(right_shoulder, right_elbow, right_wrist)
-            
-            if left_angle < 20 or right_angle < 20:
-                side = 'left' if left_angle < right_angle else 'right'
-                if side == 'left':
-                    wrist_abose_nose_y_pos = left_wrist[1] - nose[1]
-                    angle = left_angle
+                left_angle = shoulder_elbow_wrist_angle(left_shoulder, left_elbow, left_wrist)
+                right_angle = shoulder_elbow_wrist_angle(right_shoulder, right_elbow, right_wrist)
+                
+                if left_angle < 20 or right_angle < 20:
+                    side = 'left' if left_angle < right_angle else 'right'
+                    if side == 'left':
+                        wrist_abose_nose_y_pos = left_wrist[1] - nose[1]
+                        angle = left_angle
+                    else:
+                        wrist_abose_nose_y_pos = right_wrist[1] - nose[1]
+                        angle = right_angle
                 else:
-                    wrist_abose_nose_y_pos = right_wrist[1] - nose[1]
-                    angle = right_angle
-            else:
-                wrist_abose_nose_y_pos = None
-                angle = None
-                side = None
+                    wrist_abose_nose_y_pos = None
+                    angle = None
+                    side = None
 
-            if old_y_pos is None:
-                old_y_pos = wrist_abose_nose_y_pos
+                if old_y_pos is None:
+                    old_y_pos = wrist_abose_nose_y_pos
 
-            if wrist_abose_nose_y_pos is not None:
-                wrist_abose_nose_y_pos -= old_y_pos
-            
-            overlay_image =draw(
-                display_image, pose_scores, keypoint_scores, keypoint_coords,
-                min_pose_score=0.15, min_part_score=0.1,
-                angle=angle, pos=wrist_abose_nose_y_pos, hand=side)
-            
-            cv2.imshow('posenet', overlay_image)
-            frame_count += 1
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+                if wrist_abose_nose_y_pos is not None:
+                    wrist_abose_nose_y_pos -= old_y_pos
+                
+                overlay_image =draw(
+                    display_image, pose_scores, keypoint_scores, keypoint_coords,
+                    min_pose_score=0.15, min_part_score=0.1,
+                    angle=angle, pos=wrist_abose_nose_y_pos, hand=side)
+                
+                cv2.imshow('posenet', overlay_image)
+                frame_count += 1
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
 
-        print('Average FPS: ', frame_count / (time.time() - start))
+            print('Average FPS: ', frame_count / (time.time() - start), end='\r')
   
 
 if __name__ == "__main__":
