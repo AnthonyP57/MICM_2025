@@ -15,7 +15,7 @@ tf.disable_eager_execution()
 
 model=101
 # cam_id=1
-cam_id = '/home/anthonyp57/VSCode_projects/interakcja/lab_3/man_vid.mp4'
+cam_id = '/home/anthonyp57/VSCode_projects/MICM_2025/lab_3/man_vid.mp4'
 cam_width=1280
 cam_height=720
 
